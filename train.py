@@ -59,7 +59,7 @@ def train_fn(args, params):
                                    bits=params["preprocessing"]["bits"])
 
     train_dataloader = DataLoader(train_dataset, batch_size=params["vocoder"]["batch_size"],
-                                  shuffle=True, num_workers=1,
+                                  shuffle=False, num_workers=1,
                                   pin_memory=True)
 
     num_epochs = params["vocoder"]["num_steps"] // len(train_dataloader) + 1
@@ -67,10 +67,9 @@ def train_fn(args, params):
 
     for epoch in range(start_epoch, num_epochs + 1):
         running_loss = 0
-
         for i, (audio, mels) in enumerate(tqdm(train_dataloader), 1):
             audio, mels = audio.to(device), mels.to(device)
-
+            #import pdb; pdb.set_trace()
             output = model(audio[:, :-1], mels)
             loss = F.cross_entropy(output.transpose(1, 2), audio[:, 1:])
 
@@ -112,4 +111,10 @@ if __name__ == "__main__":
         params = json.load(f)
     os.makedirs(args.checkpoint_dir, exist_ok=True)
     os.makedirs(args.gen_dir, exist_ok=True)
+
+    torch.manual_seed(0)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(0)
+
     train_fn(args, params)

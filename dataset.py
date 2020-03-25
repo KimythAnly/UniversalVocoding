@@ -31,5 +31,6 @@ class VocoderDataset(Dataset):
 
         p, q = pos + self.pad, pos + self.pad + self.audio_slice_frames
         audio = audio[p * self.hop_length:q * self.hop_length + 1]
-
+        if audio.min() < 0:
+            print(audio_path, audio.min())
         return torch.LongTensor(audio), torch.FloatTensor(mel)

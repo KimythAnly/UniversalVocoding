@@ -11,18 +11,18 @@ import random
 import glob
 from itertools import chain
 
-
 def process_wav(wav_path, audio_path, mel_path, params):
     wav = load_wav(wav_path, sample_rate=params["preprocessing"]["sample_rate"])
-    wav = wav / np.abs(wav).max() * 0.999
+    # wav = wav / np.abs(wav).max() * 0.999
     mel = melspectrogram(wav, sample_rate=params["preprocessing"]["sample_rate"],
                          preemph=params["preprocessing"]["preemph"],
                          num_mels=params["preprocessing"]["num_mels"],
                          num_fft=params["preprocessing"]["num_fft"],
                          min_level_db=params["preprocessing"]["min_level_db"],
+                         ref_level_db=params["preprocessing"]["ref_level_db"],
                          hop_length=params["preprocessing"]["hop_length"],
-                         win_length=params["preprocessing"]["win_length"],
-                         fmin=params["preprocessing"]["fmin"])
+                         fmin=params["preprocessing"]["fmin"],
+                         fmax=params["preprocessing"]["fmax"])
 
     length_diff = len(mel) * params["preprocessing"]["hop_length"] - len(wav)
     wav = np.pad(wav, (0, length_diff), "constant")
@@ -30,8 +30,8 @@ def process_wav(wav_path, audio_path, mel_path, params):
     pad = (params["vocoder"]["sample_frames"] - params["vocoder"]["audio_slice_frames"]) // 2
     mel = np.pad(mel, ((pad,), (0,)), "constant")
     wav = np.pad(wav, (pad * params["preprocessing"]["hop_length"],), "constant")
-    wav = mulaw_encode(wav, mu=2 ** params["preprocessing"]["bits"])
-
+    wav = mulaw_encode(wav, channels=2 ** params["preprocessing"]["bits"])
+    assert wav.min() >= 0, f'{wav_path}: wav.min() < 0'
     speaker = os.path.splitext(os.path.split(wav_path)[-1])[0].split("_")[0]
     np.save(audio_path, wav)
     np.save(mel_path, mel)
@@ -47,7 +47,7 @@ def preprocess(wav_dirs, out_dir, num_workers, params):
 
     executor = ProcessPoolExecutor(max_workers=num_workers)
     futures = []
-    wav_paths = chain.from_iterable(glob.iglob("{}/*.wav".format(dir), recursive=True) for dir in wav_dirs)
+    wav_paths = chain.from_iterable(glob.glob(os.path.join(d, '*.wav')) for d in wav_dirs)
     for wav_path in wav_paths:
         fid = os.path.basename(wav_path).replace(".wav", ".npy")
         audio_path = os.path.join(audio_out_dir, fid)
@@ -81,11 +81,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default="data")
     parser.add_argument("--num-workers", type=int, default=cpu_count())
-    parser.add_argument("--language", type=str, default="./english")
+    parser.add_argument("--input", type=str, default="/home/anly/Documents/storage/dataset/VCTK-Corpus/wav16_en")
     with open("config.json") as f:
         params = json.load(f)
     args = parser.parse_args()
-    wav_dirs = [os.path.join(args.language, "train", "unit"), os.path.join(args.language, "train", "voice")]
+    #wav_dirs = [os.path.join(args.language, "train", "unit"), os.path.join(args.language, "train", "voice")]
+    wav_dirs = glob.glob(os.path.join(args.input, '*'))
     preprocess(wav_dirs, args.output, args.num_workers, params)
 
 

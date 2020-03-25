@@ -10,7 +10,7 @@
         "ref_level_db": 20,
         "hop_length": 256,
         "win_length": 1024,
-        "bits": 10,
+        "bits": 9,
         "num_evaluation_utterances" : 20
     },
 
